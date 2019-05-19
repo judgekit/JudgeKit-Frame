@@ -1,5 +1,6 @@
 package judgekit.judger;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.ObjectInputStream;
@@ -133,7 +134,7 @@ public class Contest implements java.io.Serializable {
 	
 	public static Contest init(String contestName,String contestPath) {
 		try {
-			ObjectInputStream inStream = new ObjectInputStream(new FileInputStream(contestPath+contestName+".jk"));
+			ObjectInputStream inStream = new ObjectInputStream(new FileInputStream(contestPath+contestName+".Contest.jk"));
 			Contest cont = (Contest)inStream.readObject();
 			inStream.close();
 			return cont;
@@ -144,7 +145,11 @@ public class Contest implements java.io.Serializable {
 	}
 	public static void save(Contest obj) {
 		try {
-			ObjectOutputStream saveStream = new ObjectOutputStream(new FileOutputStream(obj.getPath()+obj.getName()+".jk",false));
+			File out=new File(obj.getPath());
+			if(!out.exists()) {
+				out.mkdirs();
+			}
+			ObjectOutputStream saveStream = new ObjectOutputStream(new FileOutputStream(obj.getPath()+obj.getName()+".Contest.jk",false));
 			saveStream.writeObject(obj);
 			saveStream.close();
 		}catch(Exception e) {
