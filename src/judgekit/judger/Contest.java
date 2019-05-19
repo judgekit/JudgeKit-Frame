@@ -34,6 +34,9 @@ public class Contest implements java.io.Serializable {
 	public String getName() {
 		return name;
 	}
+	public Problem getProblem(String key) {
+		return problems.get(key);
+	}
 	public ProblemList getProblemList() {
 		ProblemList list = new ProblemList();
 		Iterator<Map.Entry<String,Problem>> entry = problems.entrySet().iterator();
@@ -102,12 +105,31 @@ public class Contest implements java.io.Serializable {
 		if(compileCommand.containsKey(suffix))compileCommand.remove(suffix);
 	}
 	
-	public void judge(ProblemList prob,ContestantList cont) {
-		this.judge(prob, cont,true);
+	
+	
+	public void runJudge(ProblemList prob,ContestantList cont) {
+		this.runJudge(prob, cont,true);
 	}
-	public void judge(ProblemList prob,ContestantList cont,boolean multiThread) {
+	public void runJudge(ProblemList prob,ContestantList cont,boolean multiThread) {
+		if(multiThread) {
+			
+		}else {
+			Iterator<Contestant> iteContestant=cont.getList().iterator();
+			while(iteContestant.hasNext()) {
+				Contestant contestant=iteContestant.next();
+				Iterator<Problem> iteProblem=prob.getList().iterator();
+				while(iteProblem.hasNext()) {
+					Problem problem=iteProblem.next();
+					compile(contestant,problem);
+				}
+			}
+		}
+	}
+	
+	private void compile(Contestant cont,Problem prob) {
 		
 	}
+	
 	
 	public static Contest init(String contestName,String contestPath) {
 		try {

@@ -8,6 +8,13 @@ public class Problem implements java.io.Serializable {
 	private String name;
 	private Map<Integer,Testdata> testdata = new HashMap<Integer,Testdata>();
 	
+	public Problem() {
+		name=null;
+	}
+	public Problem(String nName) {
+		name=nName;
+	}
+	
 	public String getName() {
 		return name;
 	}
