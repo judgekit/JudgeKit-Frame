@@ -1,12 +1,17 @@
 package judgekit.judger;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 public class Contest implements java.io.Serializable {
@@ -16,6 +21,7 @@ public class Contest implements java.io.Serializable {
 	private Map<String,Problem> problems = new HashMap<String,Problem>();
 	private Map<String,Contestant> contestants = new HashMap<String,Contestant>();
 	private Map<String,String> compileCommand = new HashMap<String,String>();
+	private Result result=new Result();
 	
 	public Contest(String nName,String nPath){
 		this.path=nPath;
@@ -37,6 +43,9 @@ public class Contest implements java.io.Serializable {
 	}
 	public Problem getProblem(String key) {
 		return problems.get(key);
+	}
+	public Contestant getContestant(String key) {
+		return contestants.get(key);
 	}
 	public ProblemList getProblemList() {
 		ProblemList list = new ProblemList();
@@ -71,6 +80,9 @@ public class Contest implements java.io.Serializable {
 			}
 		}
 		return list;
+	}
+	public Result getResult() {
+		return result;
 	}
 	
 	public void setPath(String nPath) {
@@ -108,10 +120,10 @@ public class Contest implements java.io.Serializable {
 	
 	
 	
-	public void runJudge(ProblemList prob,ContestantList cont) {
+	public void runJudge(ProblemList prob,ContestantList cont) throws InterruptedException {
 		this.runJudge(prob, cont,true);
 	}
-	public void runJudge(ProblemList prob,ContestantList cont,boolean multiThread) {
+	public void runJudge(ProblemList prob,ContestantList cont,boolean multiThread) throws InterruptedException {
 		if(multiThread) {
 			
 		}else {
@@ -127,8 +139,50 @@ public class Contest implements java.io.Serializable {
 		}
 	}
 	
-	private void compile(Contestant cont,Problem prob) {
-		
+	private void compile(Contestant cont,Problem prob) throws InterruptedException {
+		String[] files=new File(this.path+"src/"+cont.getPath()+prob.getPath()).list();
+		for(int i=0;i<files.length;i++) {
+			int index=files[i].lastIndexOf('.');
+			String fileName=files[i].substring(0, index);
+			String suffix=files[i].substring(index+1, files[i].length());
+			if(fileName.equals(prob.getFileName())) {
+				try {
+					List<String> command=getCompileCommand(suffix,cont,prob);
+					if(command==null)continue;
+					ProcessBuilder compile=new ProcessBuilder(command);
+					compile.redirectErrorStream(true);
+					Process compileProcess=compile.start();
+					BufferedReader reader=new BufferedReader(new InputStreamReader(compileProcess.getInputStream()));
+					
+					compileProcess.waitFor();
+					
+					if(compileProcess.exitValue()!=0) {
+						result.setCompileState(cont, prob, "Compile Error");
+					}
+					
+					String line,compileInfo=new String();
+					while((line=reader.readLine())!=null) {
+						compileInfo+=line+'\n';
+					}
+					result.setCompileInfo(cont, prob, compileInfo);
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+	
+	private List<String> getCompileCommand(String suffix,Contestant cont,Problem prob) {
+		if(!compileCommand.containsKey(suffix))return null;
+		List<String> list=new ArrayList<String>();
+		String[] command=compileCommand.get(suffix).split(" ");
+		String src=this.path+"src/"+cont.getPath()+prob.getPath()+prob.getFileName()+"."+suffix,dest=this.path+"tmp/"+cont.hashCode()+"/"+prob.hashCode()+"/"+prob.getFileName()+".exe";
+		for(int i=0;i<command.length;i++) {
+			if(command[i].equals("<src>"))command[i]=src;
+			if(command[i].equals("<dest>"))command[i]=dest;
+			list.add(command[i]);
+		}
+		return list;
 	}
 	
 	
