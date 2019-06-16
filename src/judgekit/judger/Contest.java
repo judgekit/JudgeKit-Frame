@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -20,7 +21,9 @@ public class Contest implements java.io.Serializable {
 	private String path,name;
 	private Map<String,Problem> problems = new HashMap<String,Problem>();
 	private Map<String,Contestant> contestants = new HashMap<String,Contestant>();
-	private Map<String,String> compileCommand = new HashMap<String,String>();
+	private Map<String,String> compileCommand = new HashMap<String,String>(),execFileSuffix=new HashMap<String,String>();
+	private Map<String,String> execCommand = new HashMap<String,String>();
+	String judgerPath=new String();
 	private Result result=new Result();
 	
 	public Contest(String nName,String nPath){
@@ -84,12 +87,18 @@ public class Contest implements java.io.Serializable {
 	public Result getResult() {
 		return result;
 	}
+	public String getJudgerPath() {
+		return judgerPath;
+	}
 	
 	public void setPath(String nPath) {
 		this.path=nPath;
 	}
 	public void setName(String nName) {
 		this.name=nName;
+	}
+	public void setJudgerPath(String path) {
+		this.judgerPath=path;
 	}
 	
 	public void addProblem(Problem prob) {
@@ -98,8 +107,12 @@ public class Contest implements java.io.Serializable {
 	public void addContestant(Contestant cont) {
 		contestants.put(cont.getName(),cont);
 	}
-	public void addCompileCommand(String suffix,String command) {
+	public void addCompileCommand(String suffix,String command,String execSuffix) {
 		compileCommand.put(suffix, command);
+		execFileSuffix.put(suffix, execSuffix);
+	}
+	public void addExecCommand(String suffix,String command) {
+		execCommand.put(suffix, command);
 	}
 	
 	public void removeProblem(String key) {
@@ -117,13 +130,38 @@ public class Contest implements java.io.Serializable {
 	public void removeCompileCommand(String suffix) {
 		if(compileCommand.containsKey(suffix))compileCommand.remove(suffix);
 	}
+	public void removeExecCommand(String suffix) {
+		if(execCommand.containsKey(suffix))execCommand.remove(suffix);
+	}
 	
 	
 	
-	public void runJudge(ProblemList prob,ContestantList cont) throws InterruptedException {
+	private void copyFile(String from,String dest) {
+		try {
+			Files.copy((new File(from)).toPath(), (new File(dest)).toPath());
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+	private void removeFile(String dest) {
+		File file=new File(dest);
+		if(file.exists()) {
+			if(file.isFile()) {
+				file.delete();
+			}else if(file.isDirectory()) {
+				File[] files=file.listFiles();
+				for(int i=0;i<files.length;i++) {
+					removeFile(files[i].getPath());
+				}
+				file.delete();
+			}
+		}
+	}
+	
+	public void runJudge(ProblemList prob,ContestantList cont) {
 		this.runJudge(prob, cont,true);
 	}
-	public void runJudge(ProblemList prob,ContestantList cont,boolean multiThread) throws InterruptedException {
+	public void runJudge(ProblemList prob,ContestantList cont,boolean multiThread) {
 		if(multiThread) {
 			
 		}else {
@@ -133,20 +171,29 @@ public class Contest implements java.io.Serializable {
 				Iterator<Problem> iteProblem=prob.getList().iterator();
 				while(iteProblem.hasNext()) {
 					Problem problem=iteProblem.next();
-					compile(contestant,problem);
+					String[] exec=compile(contestant,problem);
+					if(exec!=null) {
+						for(Testdata testdata:problem.getAllTestData().values()) {
+							judge(exec[0],exec[1],contestant,problem,testdata);
+							removeFile(path+"tmp"+File.separator+contestant.hashCode()+File.separator+problem.hashCode()+File.separator+testdata.hashCode());
+						}
+					}
 				}
+				removeFile(path+"tmp"+File.separator+contestant.hashCode());
 			}
 		}
 	}
 	
-	private void compile(Contestant cont,Problem prob) throws InterruptedException {
-		String[] files=new File(this.path+"src/"+cont.getPath()+prob.getPath()).list();
+	private String[] compile(Contestant cont,Problem prob) {
+		String[] files=new File(this.path+File.separator+cont.getPath()+prob.getPath()).list();
 		for(int i=0;i<files.length;i++) {
 			int index=files[i].lastIndexOf('.');
 			String fileName=files[i].substring(0, index);
 			String suffix=files[i].substring(index+1, files[i].length());
 			if(fileName.equals(prob.getFileName())) {
 				try {
+					String destDir=this.path+"tmp"+File.separator+cont.hashCode()+File.separator+prob.hashCode()+File.separator;
+					(new File(destDir)).mkdirs();
 					List<String> command=getCompileCommand(suffix,cont,prob);
 					if(command==null)continue;
 					ProcessBuilder compile=new ProcessBuilder(command);
@@ -157,7 +204,7 @@ public class Contest implements java.io.Serializable {
 					compileProcess.waitFor();
 					
 					if(compileProcess.exitValue()!=0) {
-						result.setCompileState(cont, prob, "Compile Error");
+						result.setCompileState(cont, prob, "compile error");
 					}
 					
 					String line,compileInfo=new String();
@@ -165,21 +212,84 @@ public class Contest implements java.io.Serializable {
 						compileInfo+=line+'\n';
 					}
 					result.setCompileInfo(cont, prob, compileInfo);
-				} catch (IOException e) {
+					
+					if((new File(destDir+prob.getFileName()+"."+execFileSuffix.get(suffix))).exists()) {
+						result.setCompileState(cont, prob, "ok");
+						String[] ret=new String[2];
+						ret[0]=suffix;
+						ret[1]=prob.getFileName()+"."+execFileSuffix.get(suffix);
+						return ret;
+					}else {
+						result.setCompileState(cont, prob, "compilation error");
+						return null;
+					}
+				} catch (Exception e) {
 					e.printStackTrace();
 				}
 			}
 		}
+		return null;
 	}
 	
 	private List<String> getCompileCommand(String suffix,Contestant cont,Problem prob) {
 		if(!compileCommand.containsKey(suffix))return null;
 		List<String> list=new ArrayList<String>();
 		String[] command=compileCommand.get(suffix).split(" ");
-		String src=this.path+"src/"+cont.getPath()+prob.getPath()+prob.getFileName()+"."+suffix,dest=this.path+"tmp/"+cont.hashCode()+"/"+prob.hashCode()+"/"+prob.getFileName()+".exe";
+		String src=this.path+File.separator+cont.getPath()+prob.getPath()+prob.getFileName()+"."+suffix,dest=this.path+"tmp"+File.separator+cont.hashCode()+File.separator+prob.hashCode()+File.separator+prob.getFileName()+"."+execFileSuffix.get(suffix);
 		for(int i=0;i<command.length;i++) {
-			if(command[i].equals("<src>"))command[i]=src;
-			if(command[i].equals("<dest>"))command[i]=dest;
+			command[i]=command[i].replace("<src>", src);
+			command[i]=command[i].replace("<dest>", dest);
+			list.add(command[i]);
+		}
+		return list;
+	}
+	
+	private void judge(String suffix,String execFileName,Contestant cont,Problem prob,Testdata testdata) {
+		try {
+			String path=this.path+"tmp"+File.separator+cont.hashCode()+File.separator+prob.hashCode()+File.separator;
+			(new File(path+testdata.hashCode()+File.separator)).mkdirs();
+			copyFile(path+execFileName,path+testdata.hashCode()+File.separator+execFileName);
+			copyFile(testdata.getStandardInputFile().getPath(),path+testdata.hashCode()+File.separator+prob.getInputFileName());
+			ProcessBuilder exec=new ProcessBuilder(getRunCommand(suffix,path+testdata.hashCode()+File.separator+execFileName));
+			Process execProcess = exec.start();
+			
+			execProcess.waitFor();
+			
+			if(execProcess.exitValue()!=0) {
+				result.setFinalState(cont, prob, "runtime error");
+				result.setDescription(cont, prob, "");
+				return;
+			}
+			
+			ProcessBuilder judger=new ProcessBuilder("\""+judgerPath+"\" \""+testdata.getStandardInputFile().getPath()+"\" \""+path+testdata.hashCode()+File.separator+prob.getAnsFileName()+"\" \""+testdata.getStandardOutputFile().getPath()+"\"");
+			String[] state= {"ok","wrong answer","presentation error","unknown","unknown","unknown","unknown","partially correct","unknown","unknown","unknown","unknown","unknown","unknown","unknown","unknown"};
+			judger.redirectErrorStream(true);
+			Process judgerProcess=judger.start();
+			
+			judgerProcess.waitFor();
+			
+			if(judgerProcess.exitValue()>=0&&judgerProcess.exitValue()<state.length) {
+				result.setFinalState(cont, prob, state[judgerProcess.exitValue()]);
+			}else result.setFinalState(cont, prob, "unknown");
+			
+			BufferedReader reader=new BufferedReader(new InputStreamReader(judgerProcess.getInputStream()));
+			String line,description=new String();
+			while((line=reader.readLine())!=null) {
+				description+=line+"\n";
+			}
+			result.setDescription(cont, prob, description);
+			
+			removeFile(path+testdata.hashCode()+File.separator);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	private List<String> getRunCommand(String suffix,String dest) {
+		List<String> list=new ArrayList<String>();
+		String[] command=execCommand.get(suffix).split(" ");
+		for(int i=0;i<command.length;i++) {
+			command[i]=command[i].replace("<dest>", "\""+dest+"\"");
 			list.add(command[i]);
 		}
 		return list;

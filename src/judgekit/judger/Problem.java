@@ -5,7 +5,7 @@ import java.util.Map;
 
 public class Problem implements java.io.Serializable {
 	private static final long serialVersionUID = 1L;
-	private String name,path,fileName;
+	private String name,path,fileName,ansFileName,inputFileName;
 	private Map<Integer,Testdata> testdata = new HashMap<Integer,Testdata>();
 	
 	public Problem() {
@@ -24,6 +24,12 @@ public class Problem implements java.io.Serializable {
 	public String getFileName() {
 		return fileName;
 	}
+	public String getAnsFileName() {
+		return ansFileName;
+	}
+	public String getInputFileName() {
+		return inputFileName;
+	}
 	
 	public void setName(String nName) {
 		this.name=nName;
@@ -33,6 +39,12 @@ public class Problem implements java.io.Serializable {
 	}
 	public void setFileName(String nFileName) {
 		this.fileName=nFileName;
+	}
+	public void setAnsFileName(String nName) {
+		this.ansFileName=nName;
+	}
+	public void setInputFileName(String nName) {
+		this.inputFileName=nName;
 	}
 	
 	public Map<Integer,Testdata> getAllTestData(){
