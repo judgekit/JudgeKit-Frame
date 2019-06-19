@@ -1,5 +1,9 @@
 # JudgeKit-Frame
 
+[![Build Status](https://travis-ci.com/Bambusaceae/JudgeKit-Frame.svg?branch=master)](https://travis-ci.com/Bambusaceae/JudgeKit-Frame)
+
+---
+
 ## 简介
 
 JudgeKit-Frame(JK Frame)，是一个开源的评测机框架，使用Java语言编写，集成了配置、测评的功能。该框架的目标是**多线程**测评（即同时测评多个程序）。
