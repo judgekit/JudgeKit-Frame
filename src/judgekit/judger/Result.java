@@ -6,8 +6,8 @@ public class Result implements java.io.Serializable {
 	private static final long serialVersionUID = 1L;
 	private HashMap<Contestant,HashMap<Problem,String>> compileInfo=new HashMap<Contestant,HashMap<Problem,String>>();
 	private HashMap<Contestant,HashMap<Problem,String>> compileStates=new HashMap<Contestant,HashMap<Problem,String>>();
-	private HashMap<Contestant,HashMap<Problem,String>> finalStates=new HashMap<Contestant,HashMap<Problem,String>>();
-	private HashMap<Contestant,HashMap<Problem,String>> description=new HashMap<Contestant,HashMap<Problem,String>>();
+	private HashMap<Contestant,HashMap<Problem,HashMap<Testdata,String>>> finalStates=new HashMap<Contestant,HashMap<Problem,HashMap<Testdata,String>>>();
+	private HashMap<Contestant,HashMap<Problem,HashMap<Testdata,String>>> description=new HashMap<Contestant,HashMap<Problem,HashMap<Testdata,String>>>();
 	
 	void setCompileState(Contestant cont,Problem prob,String State) {
 		if(!compileStates.containsKey(cont)) {
@@ -21,17 +21,23 @@ public class Result implements java.io.Serializable {
 		}
 		compileInfo.get(cont).put(prob, Info);
 	}
-	void setFinalState(Contestant cont,Problem prob,String State) {
+	void setFinalState(Contestant cont,Problem prob,Testdata data,String State) {
 		if(!finalStates.containsKey(cont)) {
-			finalStates.put(cont, new HashMap<Problem,String>());
+			finalStates.put(cont, new HashMap<Problem,HashMap<Testdata,String>>());
 		}
-		finalStates.get(cont).put(prob, State);
+		if(!finalStates.get(cont).containsKey(prob)) {
+			finalStates.get(cont).put(prob, new HashMap<Testdata,String>());
+		}
+		finalStates.get(cont).get(prob).put(data, State);
 	}
-	void setDescription(Contestant cont,Problem prob,String Description) {
+	void setDescription(Contestant cont,Problem prob,Testdata data,String Description) {
 		if(!description.containsKey(cont)) {
-			description.put(cont, new HashMap<Problem,String>());
+			description.put(cont, new HashMap<Problem,HashMap<Testdata,String>>());
 		}
-		description.get(cont).put(prob, Description);
+		if(!description.get(cont).containsKey(prob)) {
+			description.get(cont).put(prob, new HashMap<Testdata,String>());
+		}
+		description.get(cont).get(prob).put(data, Description);
 	}
 	
 	public String getCompileState(Contestant cont,Problem prob) {
@@ -42,12 +48,14 @@ public class Result implements java.io.Serializable {
 		if(!compileInfo.containsKey(cont))return null;
 		return compileInfo.get(cont).get(prob);
 	}
-	public String getFinalState(Contestant cont,Problem prob) {
+	public String getFinalState(Contestant cont,Problem prob,Testdata data) {
 		if(!finalStates.containsKey(cont))return null;
-		return finalStates.get(cont).get(prob);
+		if(!finalStates.get(cont).containsKey(prob))return null;
+		return finalStates.get(cont).get(prob).get(data);
 	}
-	public String getDescription(Contestant cont,Problem prob) {
+	public String getDescription(Contestant cont,Problem prob,Testdata data) {
 		if(!description.containsKey(cont))return null;
-		return description.get(cont).get(prob);
+		if(!description.get(cont).containsKey(prob))return null;
+		return description.get(cont).get(prob).get(data);
 	}
 }

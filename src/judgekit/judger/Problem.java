@@ -50,6 +50,9 @@ public class Problem implements java.io.Serializable {
 	public Map<Integer,Testdata> getAllTestData(){
 		return testdata;
 	}
+	public Testdata getTestData(Integer ID) {
+		return testdata.get(ID);
+	}
 	
 	public void addTestData(Testdata data) {
 		testdata.put(data.getID(), data);

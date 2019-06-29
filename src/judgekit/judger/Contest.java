@@ -25,17 +25,21 @@ public class Contest implements java.io.Serializable {
 	private Map<String,String> execCommand = new HashMap<String,String>();
 	String judgerPath=new String();
 	private Result result=new Result();
+	public Callback realtimeCallback;
 	
 	public Contest(String nName,String nPath){
 		this.path=nPath;
 		this.name=nName;
+		this.realtimeCallback=(prob,cont,testdata,state,score)->{};
 	}
 	public Contest(String nPath){
 		this.path=nPath;
 		this.name=null;
+		this.realtimeCallback=(prob,cont,testdata,state,score)->{};
 	}
 	public Contest() {
 		this.path=this.name=null;
+		this.realtimeCallback=(prob,cont,testdata,state,score)->{};
 	}
 	
 	public String getPath() {
@@ -177,6 +181,10 @@ public class Contest implements java.io.Serializable {
 							judge(exec[0],exec[1],contestant,problem,testdata);
 							removeFile(path+"tmp"+File.separator+contestant.hashCode()+File.separator+problem.hashCode()+File.separator+testdata.hashCode());
 						}
+					}else {
+						for(Testdata testdata:problem.getAllTestData().values()) {
+							realtimeCallback.callback(problem, contestant, testdata, "compilation error", 0.0);
+						}
 					}
 				}
 				removeFile(path+"tmp"+File.separator+contestant.hashCode());
@@ -251,13 +259,15 @@ public class Contest implements java.io.Serializable {
 			copyFile(path+execFileName,path+testdata.hashCode()+File.separator+execFileName);
 			copyFile(testdata.getStandardInputFile().getPath(),path+testdata.hashCode()+File.separator+prob.getInputFileName());
 			ProcessBuilder exec=new ProcessBuilder(getRunCommand(suffix,path+testdata.hashCode()+File.separator+execFileName));
+			exec.directory(new File(path+testdata.hashCode()+File.separator));
 			Process execProcess = exec.start();
 			
 			execProcess.waitFor();
 			
 			if(execProcess.exitValue()!=0) {
-				result.setFinalState(cont, prob, "runtime error");
-				result.setDescription(cont, prob, "");
+				result.setFinalState(cont, prob, testdata, "runtime error");
+				realtimeCallback.callback(prob, cont, testdata, "runtime error", 0.0);
+				result.setDescription(cont, prob, testdata, "");
 				return;
 			}
 			
@@ -269,15 +279,19 @@ public class Contest implements java.io.Serializable {
 			judgerProcess.waitFor();
 			
 			if(judgerProcess.exitValue()>=0&&judgerProcess.exitValue()<state.length) {
-				result.setFinalState(cont, prob, state[judgerProcess.exitValue()]);
-			}else result.setFinalState(cont, prob, "unknown");
+				result.setFinalState(cont, prob, testdata, state[judgerProcess.exitValue()]);
+				realtimeCallback.callback(prob, cont, testdata, state[judgerProcess.exitValue()], (judgerProcess.exitValue()==0)?1.0:0.0);
+			}else{
+				result.setFinalState(cont, prob, testdata, "unknown");
+				realtimeCallback.callback(prob, cont, testdata, "unknown",0.0);
+			}
 			
 			BufferedReader reader=new BufferedReader(new InputStreamReader(judgerProcess.getInputStream()));
 			String line,description=new String();
 			while((line=reader.readLine())!=null) {
 				description+=line+"\n";
 			}
-			result.setDescription(cont, prob, description);
+			result.setDescription(cont, prob, testdata, description);
 			
 			removeFile(path+testdata.hashCode()+File.separator);
 		} catch (Exception e) {
